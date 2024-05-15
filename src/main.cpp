@@ -12,6 +12,7 @@
 #include <QDateTime>
 #include <QStandardPaths>
 #include "logger.h"
+#include <ror2mmurl.h>
 
 
 #pragma comment(linker, "/manifestDependency:\"name='dlls' processorArchitecture='x86' version='1.0.0.0' type='win32' \"")
@@ -240,39 +241,71 @@ int main(int argc, char *argv[])
     //    forwards link to registered handler
 
     if (args.count() > 1) {
-      if ((args.at(1) == "reg") || (args.at(1) == "forcereg")) {
-        if (args.count() == 4) {
-          storage->registerHandler(args.at(2).split(",", Qt::SkipEmptyParts), QDir::toNativeSeparators(args.at(3)), "", true, forceReg);
-          if (forceReg) {
-            applyChromeFix();
-          }
-          return 0;
-        } else {
-          QMessageBox::critical(nullptr, QObject::tr("Error"), QObject::tr("Invalid number of parameters"));
+        if ((args.at(1) == "reg") || (args.at(1) == "forcereg")) {
+            if (args.count() == 4) {
+                storage->registerHandler(args.at(2).split(",", Qt::SkipEmptyParts), QDir::toNativeSeparators(args.at(3)), "", true, forceReg);
+                if (forceReg) {
+                    applyChromeFix();
+                }
+                return 0;
+            }
+            else {
+                QMessageBox::critical(nullptr, QObject::tr("Error"), QObject::tr("Invalid number of parameters"));
+            }
         }
-      } else if (args.at(1).startsWith("nxm://")) {
-        NXMUrl url(args.at(1));
-        QStringList handlerVals = storage->getHandler(url.game());
-        QString executable = handlerVals.front();
-        handlerVals.pop_front();
-        QString arguments = handlerVals.join(" ");
-        if (!executable.isEmpty()) {
-          handleLink(executable, arguments, args.at(1));
-          return 0;
+        else if (args.at(1).startsWith("nxm://")) {
+            NXMUrl url(args.at(1));
+            QStringList handlerVals = storage->getHandler(url.game());
+            QString executable = handlerVals.front();
+            handlerVals.pop_front();
+            QString arguments = handlerVals.join(" ");
+            if (!executable.isEmpty()) {
+                handleLink(executable, arguments, args.at(1));
+                return 0;
+            }
+            else {
+                QMessageBox::warning(nullptr, QObject::tr("No handler found"),
+                    QObject::tr("No application registered to handle this game (%1).\n"
+                        "If you expected Mod Organizer to handle the link, "
+                        "you have to go to Settings->Nexus and click the \"Associate with ... links\"-button.\n"
+                        "If you have NMM installed, you can re-register it for nxm-links so it handles "
+                        "the links that MO doesn't.").arg(url.game()));
+                return 1;
+            }
+        } else if (args.at(1).startsWith("ror2mm://")) {
+            ROR2MMUrl url(args.at(1));
+
+            qDebug() << "Game: " << url.game() <<
+                " ModId(ModAuthor): " << url.modAuthor() <<
+                " FileID(ModName): " << url.modName() <<
+                " ModId: " << url.modId() <<
+                " Version: " << url.version() <<
+                " URL: " << url.downloadUrl();
+
+            QStringList handlerVals = storage->getHandler(url.game());
+            QString executable = handlerVals.front();
+            handlerVals.pop_front();
+
+            // TODO: Implement full interface for thunderstore to be ablet get mod community to find game.
+            QString arguments = " downloadror2mm";
+            if (!executable.isEmpty()) {
+                handleLink(executable, arguments, args.at(1));
+                return 0;
+            }
+            else {
+                QMessageBox::warning(nullptr, QObject::tr("No handler found"),
+                    QObject::tr("No application registered to handle this game (%1).\n"
+                        "If you expected Mod Organizer to handle the link, "
+                        "you have to go to Settings->Nexus and click the \"Associate with ... links\"-button.\n"
+                        "If you have NMM installed, you can re-register it for nxm-links so it handles "
+                        "the links that MO doesn't.").arg(url.game()));
+                return 1;
+            }
         } else {
-          QMessageBox::warning(nullptr, QObject::tr("No handler found"),
-                               QObject::tr( "No application registered to handle this game (%1).\n"
-                                            "If you expected Mod Organizer to handle the link, "
-                                            "you have to go to Settings->Nexus and click the \"Associate with ... links\"-button.\n"
-                                            "If you have NMM installed, you can re-register it for nxm-links so it handles "
-                                            "the links that MO doesn't.").arg(url.game()));
-          return 1;
+            QMessageBox::warning(nullptr, QObject::tr("Invalid Arguments"), QObject::tr("Invalid number of parameters"));
+            return 1;
         }
-      } else {
-        QMessageBox::warning(nullptr, QObject::tr("Invalid Arguments"), QObject::tr("Invalid number of parameters"));
-        return 1;
-      }
-      return 0;
+        return 0;
     } else {
       HandlerWindow win;
       win.setHandlerStorage(storage.get());
